@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "organizational-intelligence": {
+      "url": "http://127.0.0.1:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer BLUE_EXAGGERATION_SMELL"
+      }
+    }
+  }
+}
