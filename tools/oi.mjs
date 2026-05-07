@@ -2,6 +2,7 @@
 // Schemas use zod/v3 so MCP SDK validateToolInput uses v3 safeParse, not z4mini (see @modelcontextprotocol/sdk zod-compat).
 import { z } from "zod/v3";
 import { getOiFileRepositories } from "../lib/oi/fileMdRepositories.mjs";
+import { promptEntryToMcpGetResult, promptEntryToMcpPrompt } from "../lib/oi/mcpPrompts.mjs";
 import { handleSubMcpProxy } from "../lib/oi/subMcpProxy.mjs";
 
 const repositoryInitialization = getOiFileRepositories()
@@ -13,6 +14,14 @@ const repositoryInitialization = getOiFileRepositories()
     console.error(`[oi] repository initialization failed: ${error.message}`);
     throw error;
   });
+
+const recommendedManifestWorkflow = [
+  "Use this manifest to discover available shared context and prompts before guessing what exists.",
+  "Fetch relevant shared context before relying on it.",
+  "Use prompt metadata to decide whether a reusable prompt applies to the user's task.",
+  "Do not use upsert operations unless the user explicitly asks to create or update repository content.",
+  "Call oi_sub_mcp_proxy list_servers before assuming any downstream MCP tools are available."
+];
 
 /** Shared markdown resources: list, search, fetch, upsert. No delete. */
 const sharedContextOperationSchema = z.discriminatedUnion("operation", [
@@ -68,6 +77,11 @@ const promptRepositoryOperationSchema = z.discriminatedUnion("operation", [
     requiredTools: z.array(z.string())
   })
 ]);
+
+const manifestOperationSchema = z.object({
+  operation: z.literal("get"),
+  includeWorkflow: z.boolean().optional()
+});
 
 /** Discover sub-MCP servers / tools and invoke proxied tools (e.g. Sheet MCP on another host).
  * Include camelCase operation literals so MCP JSON-Schema validation (no z.preprocess) accepts LLM output.
@@ -224,6 +238,53 @@ async function handlePromptRepository(op) {
   }
 }
 
+async function handleManifest(op) {
+  const { packageRoot, sharedContext, prompts } = await repositoryInitialization;
+  const [sharedContextResult, promptsResult] = await Promise.all([
+    sharedContext.list({ limit: 200 }),
+    prompts.list({ limit: 200 })
+  ]);
+  const workflow = op.includeWorkflow === false ? undefined : recommendedManifestWorkflow;
+
+  return {
+    summary: `${sharedContextResult.items.length} shared context entr${
+      sharedContextResult.items.length === 1 ? "y" : "ies"
+    } and ${promptsResult.items.length} prompt entr${
+      promptsResult.items.length === 1 ? "y" : "ies"
+    } available.`,
+    data: {
+      packageRoot,
+      sharedContext: sharedContextResult.items,
+      prompts: promptsResult.items,
+      ...(workflow ? { recommendedWorkflow: workflow } : {})
+    }
+  };
+}
+
+async function handleMcpPromptsList(op = {}) {
+  const { prompts } = await repositoryInitialization;
+  const result = await prompts.list({
+    cursor: op.cursor,
+    limit: op.limit ?? 200
+  });
+
+  return {
+    prompts: result.entries.map(promptEntryToMcpPrompt),
+    ...(result.nextCursor ? { nextCursor: result.nextCursor } : {})
+  };
+}
+
+async function handleMcpPromptGet(op) {
+  const { prompts } = await repositoryInitialization;
+  const entry = await prompts.fetch(op.name);
+
+  if (!entry) {
+    throw new Error(`Prompt not found: ${op.name}`);
+  }
+
+  return promptEntryToMcpGetResult(entry, op.arguments ?? {});
+}
+
 const sharedContextTool = {
   name: "oi_shared_context",
   description:
@@ -232,6 +293,17 @@ const sharedContextTool = {
   async run(input) {
     const parsed = sharedContextOperationSchema.parse(input);
     return handleSharedContext(parsed);
+  }
+};
+
+const manifestTool = {
+  name: "oi_manifest",
+  description:
+    "Generated Organizational Intelligence manifest. Operation: get. Returns available shared context, prompts, metadata, and recommended usage workflow.",
+  schema: manifestOperationSchema,
+  async run(input) {
+    const parsed = manifestOperationSchema.parse(input);
+    return handleManifest(parsed);
   }
 };
 
@@ -263,13 +335,19 @@ const subMcpProxyTool = {
 
 const moduleDefinition = {
   name: "organizational-intelligence",
-  tools: [sharedContextTool, promptRepositoryTool, subMcpProxyTool]
+  tools: [manifestTool, sharedContextTool, promptRepositoryTool, subMcpProxyTool],
+  prompts: {
+    list: handleMcpPromptsList,
+    get: handleMcpPromptGet
+  }
 };
 
 export const name = moduleDefinition.name;
 export const tools = moduleDefinition.tools;
+export const prompts = moduleDefinition.prompts;
 
 export {
+  manifestOperationSchema,
   sharedContextOperationSchema,
   promptRepositoryOperationSchema,
   subMcpProxyOperationSchema

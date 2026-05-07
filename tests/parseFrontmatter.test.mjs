@@ -102,6 +102,49 @@ Body line 1
     assert.equal(e2.text.trim(), entry.text.trim());
   });
 
+  test("parses prompt discovery metadata", () => {
+    const raw = `---
+name: code-review
+title: Code Review
+description: Review code against standards
+model: openai:gpt-4o-mini
+tools: []
+allowed_agents: []
+tags:
+  - engineering
+  - code-review
+audience:
+  - developers
+use_when:
+  - Reviewing code changes
+context:
+  - coding-standards
+arguments:
+  - diff
+memory: thread
+---
+Review the supplied diff.
+`;
+    const parsed = parsePromptMarkdown(raw);
+    assert.equal(parsed.ok, true);
+    const entry = promptEntryFromParsed(parsed.fields, parsed.body, "prompts/code-review.md");
+
+    assert.equal(entry.title, "Code Review");
+    assert.deepEqual(entry.tags, ["engineering", "code-review"]);
+    assert.deepEqual(entry.audience, ["developers"]);
+    assert.deepEqual(entry.useWhen, ["Reviewing code changes"]);
+    assert.deepEqual(entry.context, ["coding-standards"]);
+    assert.deepEqual(entry.arguments, ["diff"]);
+
+    const again = parsePromptMarkdown(serializePromptMarkdown(entry));
+    assert.equal(again.ok, true);
+    const e2 = promptEntryFromParsed(again.fields, again.body, entry.sourceRelPath);
+    assert.equal(e2.title, entry.title);
+    assert.deepEqual(e2.useWhen, entry.useWhen);
+    assert.deepEqual(e2.context, entry.context);
+    assert.deepEqual(e2.arguments, entry.arguments);
+  });
+
   test("round-trips shared context with tags", () => {
     const raw = `---
 name: doc
@@ -122,5 +165,42 @@ Content here.
     const e2 = sharedContextEntryFromParsed(p2.fields, p2.body, entry.sourceRelPath);
     assert.deepEqual(e2.tags, entry.tags);
     assert.equal(e2.content.trim(), "Content here.");
+  });
+
+  test("parses shared context discovery metadata", () => {
+    const raw = `---
+name: coding-standards
+title: Coding Standards
+description: Engineering standards for implementation and review
+tags:
+  - engineering
+  - code-review
+audience:
+  - developers
+use_when:
+  - Implementing code
+  - Reviewing code
+context:
+  - agent-usage
+---
+Standards content.
+`;
+    const parsed = parsePromptMarkdown(raw);
+    assert.equal(parsed.ok, true);
+    const entry = sharedContextEntryFromParsed(parsed.fields, parsed.body, "sharedContext/coding-standards.md");
+
+    assert.equal(entry.title, "Coding Standards");
+    assert.deepEqual(entry.tags, ["engineering", "code-review"]);
+    assert.deepEqual(entry.audience, ["developers"]);
+    assert.deepEqual(entry.useWhen, ["Implementing code", "Reviewing code"]);
+    assert.deepEqual(entry.context, ["agent-usage"]);
+
+    const again = parsePromptMarkdown(serializeSharedContextMarkdown(entry));
+    assert.equal(again.ok, true);
+    const e2 = sharedContextEntryFromParsed(again.fields, again.body, entry.sourceRelPath);
+    assert.equal(e2.title, entry.title);
+    assert.deepEqual(e2.audience, entry.audience);
+    assert.deepEqual(e2.useWhen, entry.useWhen);
+    assert.deepEqual(e2.context, entry.context);
   });
 });

@@ -20,11 +20,22 @@ describe("FileMdRepositories (temp dirs)", () => {
       join(base, "prompts", "alpha.md"),
       `---
 name: alpha
+title: Alpha Prompt
 description: Alpha prompt
 model: openai:gpt-4o-mini
 tools:
   - tool_a
 allowed_agents: []
+tags:
+  - engineering
+audience:
+  - developers
+use_when:
+  - Testing prompt metadata
+context:
+  - beta
+arguments:
+  - request
 memory: thread
 ---
 Alpha body.
@@ -35,10 +46,17 @@ Alpha body.
       join(base, "sharedContext", "beta.md"),
       `---
 name: beta
+title: Beta Context
 description: Beta ctx
 tags:
   - sales
   - tone
+audience:
+  - marketers
+use_when:
+  - Writing sales copy
+context:
+  - alpha
 ---
 Beta content.
 `,
@@ -61,11 +79,21 @@ Beta content.
     assert.ok(p);
     assert.equal(p.text.trim(), "Alpha body.");
     assert.deepEqual(p.tools, ["tool_a"]);
+    assert.equal(p.title, "Alpha Prompt");
+    assert.deepEqual(p.tags, ["engineering"]);
+    assert.deepEqual(p.audience, ["developers"]);
+    assert.deepEqual(p.useWhen, ["Testing prompt metadata"]);
+    assert.deepEqual(p.context, ["beta"]);
+    assert.deepEqual(p.arguments, ["request"]);
 
     const s = await r.sharedContext.fetch("beta");
     assert.ok(s);
     assert.equal(s.content.trim(), "Beta content.");
     assert.deepEqual(s.tags, ["sales", "tone"]);
+    assert.equal(s.title, "Beta Context");
+    assert.deepEqual(s.audience, ["marketers"]);
+    assert.deepEqual(s.useWhen, ["Writing sales copy"]);
+    assert.deepEqual(s.context, ["alpha"]);
   });
 
   test("loads plain markdown files without frontmatter", async () => {
@@ -98,8 +126,12 @@ Beta content.
     const r = await createFileMdRepositories(base);
     const pr = await r.prompts.search({ query: "tool_a" });
     assert.ok(pr.items.some((i) => i.id === "alpha"));
+    const prMetadata = await r.prompts.search({ query: "Testing prompt metadata" });
+    assert.ok(prMetadata.items.some((i) => i.id === "alpha"));
     const sc = await r.sharedContext.search({ query: "sales" });
     assert.ok(sc.items.some((i) => i.id === "beta"));
+    const scMetadata = await r.sharedContext.search({ query: "marketers" });
+    assert.ok(scMetadata.items.some((i) => i.id === "beta"));
   });
 
   test("list filters shared context by tagsAny", async () => {

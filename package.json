@@ -5,9 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test tests/parseFrontmatter.test.mjs tests/fileMdRepositories.test.mjs tests/oi-tools.test.mjs",
-    "dev": "ai-agent-framework --port 3000",
-    "start": "ai-agent-framework --port 3000",
-    "deploy": "node ./node_modules/ai-agent-framework/scripts/deploy.js"
+    "dev": "node ./scripts/server.mjs",
+    "start": "node ./scripts/server.mjs",
+    "deploy": "node ./scripts/deploy.mjs"
   },
   "keywords": [],
   "author": "",
@@ -15,7 +15,7 @@
   "type": "commonjs",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "ai-agent-framework": "file:vendor/ai-agent-framework-0.2.0.tgz",
+    "ai-agent-framework": "file:vendor/ai-agent-framework-0.1.0.tgz",
     "zod": "^4.3.6"
   }
 }
