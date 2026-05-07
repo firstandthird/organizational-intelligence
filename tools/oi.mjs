@@ -4,6 +4,16 @@ import { z } from "zod/v3";
 import { getOiFileRepositories } from "../lib/oi/fileMdRepositories.mjs";
 import { handleSubMcpProxy } from "../lib/oi/subMcpProxy.mjs";
 
+const repositoryInitialization = getOiFileRepositories()
+  .then((repositories) => {
+    console.log(`[oi] repositories initialized from ${repositories.packageRoot}`);
+    return repositories;
+  })
+  .catch((error) => {
+    console.error(`[oi] repository initialization failed: ${error.message}`);
+    throw error;
+  });
+
 /** Shared markdown resources: list, search, fetch, upsert. No delete. */
 const sharedContextOperationSchema = z.discriminatedUnion("operation", [
   z.object({
@@ -98,7 +108,7 @@ function canonicalizeSubMcpProxyParsed(parsed) {
 }
 
 async function handleSharedContext(op) {
-  const { sharedContext } = await getOiFileRepositories();
+  const { sharedContext } = await repositoryInitialization;
   switch (op.operation) {
     case "list": {
       const r = await sharedContext.list({
@@ -156,7 +166,7 @@ async function handleSharedContext(op) {
 }
 
 async function handlePromptRepository(op) {
-  const { prompts } = await getOiFileRepositories();
+  const { prompts } = await repositoryInitialization;
   switch (op.operation) {
     case "list": {
       const r = await prompts.list({

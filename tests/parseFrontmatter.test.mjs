@@ -51,6 +51,32 @@ memory: thread`;
 });
 
 describe("parsePromptMarkdown + serialization", () => {
+  test("accepts plain markdown without frontmatter", () => {
+    const parsed = parsePromptMarkdown("Plain title\n\nBody paragraph.\n");
+    assert.equal(parsed.ok, true);
+    const promptEntry = promptEntryFromParsed(parsed.fields, parsed.body, "prompts/plain-file.md");
+    const sharedEntry = sharedContextEntryFromParsed(
+      parsed.fields,
+      parsed.body,
+      "sharedContext/plain-context.md"
+    );
+
+    assert.equal(promptEntry.id, "plain-file");
+    assert.equal(promptEntry.description, "Plain title");
+    assert.equal(promptEntry.text.trim(), "Plain title\n\nBody paragraph.");
+    assert.deepEqual(promptEntry.tools, []);
+    assert.equal(sharedEntry.id, "plain-context");
+    assert.equal(sharedEntry.description, "Plain title");
+    assert.equal(sharedEntry.content.trim(), "Plain title\n\nBody paragraph.");
+    assert.deepEqual(sharedEntry.tags, []);
+  });
+
+  test("keeps malformed frontmatter strict", () => {
+    const parsed = parsePromptMarkdown("---\nname: broken\nBody without closing");
+    assert.equal(parsed.ok, false);
+    assert.equal(parsed.error, "MISSING_CLOSE_DELIM");
+  });
+
   test("round-trips a minimal prompt", () => {
     const raw = `---
 name: p1
