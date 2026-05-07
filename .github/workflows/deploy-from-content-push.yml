@@ -1,0 +1,107 @@
+name: Deploy from FT-Intelligence push
+
+on:
+  repository_dispatch:
+    types:
+      - ft-intelligence-updated
+  workflow_dispatch:
+    inputs:
+      content_ref:
+        description: FT-Intelligence branch or tag to deploy
+        required: false
+        default: primary
+      content_sha:
+        description: Optional FT-Intelligence commit SHA to deploy
+        required: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: organizational-intelligence-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve content source
+        id: source
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            echo "repo=${{ github.event.client_payload.content_repo }}" >> "$GITHUB_OUTPUT"
+            echo "ref=${{ github.event.client_payload.content_ref }}" >> "$GITHUB_OUTPUT"
+            echo "sha=${{ github.event.client_payload.content_sha }}" >> "$GITHUB_OUTPUT"
+            echo "path=${{ github.event.client_payload.checkout_path }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "repo=${{ github.repository_owner }}/FT-Intelligence" >> "$GITHUB_OUTPUT"
+            echo "ref=${{ inputs.content_ref || 'primary' }}" >> "$GITHUB_OUTPUT"
+            echo "sha=${{ inputs.content_sha }}" >> "$GITHUB_OUTPUT"
+            echo "path=FT-Intelligence" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout organizational-intelligence
+        uses: actions/checkout@v4
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.OI_AUTOMATION_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OI_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            FT-Intelligence
+
+      - name: Checkout FT-Intelligence
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.source.outputs.repo }}
+          ref: ${{ steps.source.outputs.sha || steps.source.outputs.ref }}
+          path: ${{ steps.source.outputs.path }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Verify FT-Intelligence checkout
+        shell: bash
+        run: |
+          echo "Using FT-Intelligence source:"
+          echo "  repository: ${{ steps.source.outputs.repo }}"
+          echo "  ref:        ${{ steps.source.outputs.ref }}"
+          echo "  sha:        ${{ steps.source.outputs.sha }}"
+          echo "  path:       ${{ steps.source.outputs.path }}"
+          find "${{ steps.source.outputs.path }}/prompts" -maxdepth 1 -type f -name '*.md' -print | sort || true
+          find "${{ steps.source.outputs.path }}/sharedContext" -maxdepth 1 -type f -name '*.md' -print | sort || true
+
+      - name: Deploy organizational-intelligence
+        env:
+          GCLOUD_PROJECT_ID: ${{ vars.GCLOUD_PROJECT_ID }}
+          GCLOUD_REGION: ${{ vars.GCLOUD_REGION }}
+          GCLOUD_SERVICE: ${{ vars.GCLOUD_SERVICE }}
+          MCP_AUTH_BEARER_TOKEN: ${{ secrets.MCP_AUTH_BEARER_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REPOSITORY_FOLDER: ./${{ steps.source.outputs.path }}
+          SERVICE_NAME: ${{ vars.GCLOUD_SERVICE }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
+        run: npm run deploy
