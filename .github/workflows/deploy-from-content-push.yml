@@ -43,6 +43,55 @@ jobs:
             echo "path=FT-Intelligence" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Summarize deploy request
+        shell: bash
+        run: |
+          {
+            echo "## organizational-intelligence deploy request"
+            echo
+            echo "- Trigger: \`${{ github.event_name }}\`"
+            echo "- Content repo: \`${{ steps.source.outputs.repo }}\`"
+            echo "- Content ref: \`${{ steps.source.outputs.ref }}\`"
+            echo "- Content sha: \`${{ steps.source.outputs.sha || '(not provided)' }}\`"
+            echo "- Checkout path: \`${{ steps.source.outputs.path }}\`"
+            echo "- REPOSITORY_FOLDER: \`./${{ steps.source.outputs.path }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate workflow configuration
+        shell: bash
+        env:
+          GCLOUD_PROJECT_ID: ${{ vars.GCLOUD_PROJECT_ID }}
+          GCLOUD_REGION: ${{ vars.GCLOUD_REGION }}
+          GCLOUD_SERVICE: ${{ vars.GCLOUD_SERVICE }}
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          MCP_AUTH_BEARER_TOKEN: ${{ secrets.MCP_AUTH_BEARER_TOKEN }}
+          OI_AUTOMATION_APP_CLIENT_ID: ${{ vars.OI_AUTOMATION_APP_CLIENT_ID }}
+          OI_AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.OI_AUTOMATION_APP_PRIVATE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
+        run: |
+          missing=()
+
+          [[ -n "${OI_AUTOMATION_APP_CLIENT_ID}" ]] || missing+=("Actions variable OI_AUTOMATION_APP_CLIENT_ID")
+          [[ -n "${OI_AUTOMATION_APP_PRIVATE_KEY}" ]] || missing+=("Actions secret OI_AUTOMATION_APP_PRIVATE_KEY")
+          [[ -n "${GCLOUD_PROJECT_ID}" ]] || missing+=("Actions variable GCLOUD_PROJECT_ID")
+          [[ -n "${GCLOUD_REGION}" ]] || missing+=("Actions variable GCLOUD_REGION")
+          [[ -n "${GCLOUD_SERVICE}" ]] || missing+=("Actions variable GCLOUD_SERVICE")
+          [[ -n "${GCP_WORKLOAD_IDENTITY_PROVIDER}" ]] || missing+=("Actions variable GCP_WORKLOAD_IDENTITY_PROVIDER")
+          [[ -n "${GCP_SERVICE_ACCOUNT}" ]] || missing+=("Actions variable GCP_SERVICE_ACCOUNT")
+          [[ -n "${OPENAI_API_KEY}" ]] || missing+=("Actions secret OPENAI_API_KEY")
+          [[ -n "${SLACK_BOT_TOKEN}" ]] || missing+=("Actions secret SLACK_BOT_TOKEN")
+          [[ -n "${SLACK_SIGNING_SECRET}" ]] || missing+=("Actions secret SLACK_SIGNING_SECRET")
+          [[ -n "${MCP_AUTH_BEARER_TOKEN}" ]] || missing+=("Actions secret MCP_AUTH_BEARER_TOKEN")
+
+          if (( ${#missing[@]} > 0 )); then
+            printf '::error::Missing required GitHub Actions configuration:\n' >&2
+            printf '::error:: - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+
       - name: Checkout organizational-intelligence
         uses: actions/checkout@v4
 
@@ -92,6 +141,16 @@ jobs:
           echo "  path:       ${{ steps.source.outputs.path }}"
           find "${{ steps.source.outputs.path }}/prompts" -maxdepth 1 -type f -name '*.md' -print | sort || true
           find "${{ steps.source.outputs.path }}/sharedContext" -maxdepth 1 -type f -name '*.md' -print | sort || true
+          {
+            echo
+            echo "### Runner checkout contents"
+            echo
+            echo "Prompts:"
+            find "${{ steps.source.outputs.path }}/prompts" -maxdepth 1 -type f -name '*.md' -print | sort || true
+            echo
+            echo "Shared context:"
+            find "${{ steps.source.outputs.path }}/sharedContext" -maxdepth 1 -type f -name '*.md' -print | sort || true
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy organizational-intelligence
         env:
