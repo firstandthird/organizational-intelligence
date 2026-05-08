@@ -3,21 +3,24 @@
 ## `ai-agent-framework`
 
 This repository vendors `ai-agent-framework` as
-`vendor/ai-agent-framework-0.1.0.tgz` so CI and deploys do not need direct
+`vendor/ai-agent-framework-0.2.0.tgz` so CI and deploys do not need direct
 GitHub package or SSH access to the private framework source repository during
 `npm ci`.
 
 The current tarball was packed from:
 
 - Repository: `firstandthird/agents`
-- Commit: `8cc812e7db040d70eb3b35f481107ab4999b699e`
-- Package version: `0.1.0`
+- Branch: `feature-mcp-prompt-providers`
+- Commit: `698b343ba6dcaf0fc17bfadca7d84b696b5ad959`
+- Package version: `0.2.0`
 
 To refresh it:
 
 ```sh
 gh repo clone firstandthird/agents /tmp/oi-agents-src -- --depth 1
 cd /tmp/oi-agents-src
+git fetch origin feature-mcp-prompt-providers
+git switch feature-mcp-prompt-providers
 npm ci
 npm pack --pack-destination /path/to/organizational-intelligence/vendor
 ```
