@@ -4,6 +4,24 @@ import { z } from "zod/v3";
 import { getOiFileRepositories } from "../lib/oi/fileMdRepositories.mjs";
 import { handleSubMcpProxy } from "../lib/oi/subMcpProxy.mjs";
 
+const READ_ONLY_ENV_PATTERN = /^(1|true|yes|on)$/i;
+
+/** When `OI_READ_ONLY` or `ORG_INTEL_READ_ONLY` is truthy, reject upsert and sub-MCP invoke. */
+function isOiReadOnly() {
+  const raw = process.env.OI_READ_ONLY ?? process.env.ORG_INTEL_READ_ONLY;
+  if (raw === undefined || raw === null) {
+    return false;
+  }
+  return READ_ONLY_ENV_PATTERN.test(String(raw).trim());
+}
+
+function readOnlyRejection(operation) {
+  return {
+    summary: `Operation "${operation}" is not allowed in read-only mode.`,
+    data: { error: "READ_ONLY", operation }
+  };
+}
+
 const repositoryInitialization = getOiFileRepositories()
   .then((repositories) => {
     console.log(`[oi] repositories initialized from ${repositories.packageRoot}`);
@@ -147,6 +165,9 @@ async function handleSharedContext(op) {
       };
     }
     case "upsert": {
+      if (isOiReadOnly()) {
+        return readOnlyRejection("upsert");
+      }
       const entry = await sharedContext.upsert({
         id: op.id,
         markdown: op.markdown,
@@ -205,6 +226,9 @@ async function handlePromptRepository(op) {
       };
     }
     case "upsert": {
+      if (isOiReadOnly()) {
+        return readOnlyRejection("upsert");
+      }
       const entry = await prompts.upsert({
         id: op.id,
         text: op.text,
@@ -257,6 +281,9 @@ const subMcpProxyTool = {
   async run(input) {
     const parsed = subMcpProxyOperationSchema.parse(input);
     const canonical = canonicalizeSubMcpProxyParsed(parsed);
+    if (isOiReadOnly() && canonical.operation === "invoke") {
+      return readOnlyRejection("invoke");
+    }
     return handleSubMcpProxy(canonical);
   }
 };
