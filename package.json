@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "description": "Organization Intelligence is a framework for building AI agents that talk to Slack and Organization Intelligence.",
   "main": "index.js",
+  "bin": {
+    "oi": "./oi.mjs"
+  },
   "scripts": {
-    "test": "node --test tests/parseFrontmatter.test.mjs tests/fileMdRepositories.test.mjs tests/oi-tools.test.mjs",
-    "dev": "ai-agent-framework --port 3000",
-    "start": "ai-agent-framework --port 3000",
+    "test": "node --test tests/parseFrontmatter.test.mjs tests/fileMdRepositories.test.mjs tests/oi-tools.test.mjs tests/oi-cli.test.mjs tests/dataRepoToolStubs.test.mjs",
+    "dev": "node oi.mjs",
+    "start": "node oi.mjs",
     "deploy": "node ./node_modules/ai-agent-framework/scripts/deploy.js"
   },
   "keywords": [],
