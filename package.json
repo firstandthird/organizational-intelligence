@@ -7,7 +7,7 @@
     "oi": "./oi.mjs"
   },
   "scripts": {
-    "test": "node --test tests/parseFrontmatter.test.mjs tests/fileMdRepositories.test.mjs tests/oi-tools.test.mjs tests/oi-cli.test.mjs",
+    "test": "node --test tests/parseFrontmatter.test.mjs tests/fileMdRepositories.test.mjs tests/oi-tools.test.mjs tests/oi-cli.test.mjs tests/dataRepoToolStubs.test.mjs",
     "dev": "node oi.mjs",
     "start": "node oi.mjs",
     "deploy": "node ./node_modules/ai-agent-framework/scripts/deploy.js"

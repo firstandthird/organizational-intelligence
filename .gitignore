@@ -136,3 +136,5 @@ dist
 .pnp.*
 .gitnexus
 /.claude
+.oi/
+tools/zz-data-*.mjs
