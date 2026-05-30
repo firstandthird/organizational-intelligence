@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test tests/parseFrontmatter.test.mjs tests/fileMdRepositories.test.mjs tests/oi-tools.test.mjs tests/repoAdmin.test.mjs",
-    "dev": "node server.mjs",
+    "dev": "node server.mjs --port 3000",
     "start": "node server.mjs",
     "validate": "node server.mjs --validate",
     "deploy": "node scripts/oi-deploy.mjs"

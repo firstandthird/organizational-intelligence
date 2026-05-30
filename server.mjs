@@ -66,7 +66,7 @@ function printHelp() {
       "",
       "Options:",
       "  --host <value>            Override MCP_HOST",
-      "  --port, -p <number>       Override MCP_PORT / PORT (default 3000)",
+      "  --port, -p <number>       Override MCP_PORT / PORT (default from env or 8080)",
       "  --project-root <path>     Resolve tools and .env files from a different host root",
       "  --tools-dir <path>        Override the host tools directory",
       "  --validate, --check       Validate tool loading then exit",
@@ -81,7 +81,7 @@ async function main() {
 
   framework.configureRuntime({
     host: args.host,
-    port: args.port ?? 3000,
+    ...(typeof args.port === "number" ? { port: args.port } : {}),
     projectRoot: args.projectRoot ?? projectRoot,
     toolsDir: args.toolsDir
   });
