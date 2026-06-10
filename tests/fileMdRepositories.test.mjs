@@ -160,4 +160,60 @@ Beta content from staged copy.
       await rm(sourceRoot, { recursive: true, force: true });
     }
   });
+
+  test("fetch expands Obsidian-style wikilinks", async () => {
+    await writeFile(
+      join(base, "sharedContext", "about.md"),
+      `---
+name: about
+description: About page
+tags: []
+---
+See [[beta]] for details.
+`,
+      "utf8"
+    );
+
+    const r = await createFileMdRepositories(base);
+    const about = await r.sharedContext.fetch("about");
+
+    assert.ok(about);
+    assert.match(about.content, /<!-- oi-embed: beta -->/);
+    assert.match(about.content, /Beta content\./);
+    assert.deepEqual(about.embeddedReferences, ["beta"]);
+  });
+
+  test("fetch expands nested path wikilinks", async () => {
+    await mkdir(join(base, "sharedContext", "clients"), { recursive: true });
+    await writeFile(
+      join(base, "sharedContext", "clients", "acme.md"),
+      `---
+name: acme
+description: Acme client profile
+tags: []
+---
+Acme Corp profile body.
+`,
+      "utf8"
+    );
+    await writeFile(
+      join(base, "sharedContext", "path-about.md"),
+      `---
+name: path-about
+description: About with path link
+tags: []
+---
+Client notes: [[clients/acme]]
+`,
+      "utf8"
+    );
+
+    const r = await createFileMdRepositories(base);
+    const entry = await r.sharedContext.fetch("path-about");
+
+    assert.ok(entry);
+    assert.match(entry.content, /<!-- oi-embed: clients\/acme -->/);
+    assert.match(entry.content, /Acme Corp profile body\./);
+    assert.deepEqual(entry.embeddedReferences, ["clients/acme"]);
+  });
 });
