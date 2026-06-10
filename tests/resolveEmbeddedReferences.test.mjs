@@ -11,6 +11,10 @@ describe("normalizeEmbedTarget", () => {
     assert.equal(normalizeEmbedTarget("clients/acme"), "clients/acme");
   });
 
+  test("strips .md suffix", () => {
+    assert.equal(normalizeEmbedTarget("tests/test2.md"), "tests/test2");
+  });
+
   test("rejects path traversal", () => {
     assert.equal(normalizeEmbedTarget("../secret"), null);
   });

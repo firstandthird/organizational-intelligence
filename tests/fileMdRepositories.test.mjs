@@ -216,4 +216,42 @@ Client notes: [[clients/acme]]
     assert.match(entry.content, /Acme Corp profile body\./);
     assert.deepEqual(entry.embeddedReferences, ["clients/acme"]);
   });
+
+  test("fetch resolves nested path ids and chained embeds", async () => {
+    await mkdir(join(base, "sharedContext", "tests"), { recursive: true });
+    await writeFile(
+      join(base, "sharedContext", "styleguide.md"),
+      `---
+name: styleguide
+description: Style rules
+tags:
+  - tone
+---
+Styleguide body.
+`,
+      "utf8"
+    );
+    await writeFile(
+      join(base, "sharedContext", "tests", "test2.md"),
+      "Follow [[styleguide]] for tone.\n",
+      "utf8"
+    );
+    await writeFile(
+      join(base, "sharedContext", "test.md"),
+      "See [[tests/test2]] for the next step.\n",
+      "utf8"
+    );
+
+    const r = await createFileMdRepositories(base);
+    const byPath = await r.sharedContext.fetch("tests/test2");
+    assert.ok(byPath);
+    assert.match(byPath.content, /Styleguide body\./);
+
+    const chain = await r.sharedContext.fetch("test");
+    assert.ok(chain);
+    assert.match(chain.content, /<!-- oi-embed: tests\/test2 -->/);
+    assert.match(chain.content, /<!-- oi-embed: styleguide -->/);
+    assert.deepEqual(chain.embeddedReferences, ["tests/test2", "styleguide"]);
+    assert.deepEqual(chain.embeddedMissing, []);
+  });
 });
