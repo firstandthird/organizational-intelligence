@@ -1,5 +1,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
+import { normalizeObjectSchema } from "@modelcontextprotocol/sdk/server/zod-compat.js";
+import { toJsonSchemaCompat } from "@modelcontextprotocol/sdk/server/zod-json-schema-compat.js";
 import mod from "../tools/oi.mjs";
 
 function tool(name) {
@@ -8,7 +10,37 @@ function tool(name) {
   return t;
 }
 
+function advertisedSchema(name) {
+  const schema = normalizeObjectSchema(tool(name).schema);
+  assert.ok(schema, `${name} has an object schema`);
+  return toJsonSchemaCompat(schema, {
+    strictUnions: true,
+    pipeStrategy: "input"
+  });
+}
+
 describe("tools/oi.mjs", () => {
+  test("OI tools advertise non-empty MCP input schemas", () => {
+    const sharedContext = advertisedSchema("oi_shared_context");
+    assert.ok(sharedContext.properties.operation);
+    assert.ok(sharedContext.properties.markdown);
+    assert.ok(sharedContext.properties.tags);
+    assert.deepEqual(sharedContext.required, ["operation"]);
+
+    const promptRepository = advertisedSchema("oi_prompt_repository");
+    assert.ok(promptRepository.properties.operation);
+    assert.ok(promptRepository.properties.text);
+    assert.ok(promptRepository.properties.requiredTools);
+    assert.deepEqual(promptRepository.required, ["operation"]);
+
+    const subMcpProxy = advertisedSchema("oi_sub_mcp_proxy");
+    assert.ok(subMcpProxy.properties.operation);
+    assert.ok(subMcpProxy.properties.serverId);
+    assert.ok(subMcpProxy.properties.toolName);
+    assert.ok(subMcpProxy.properties.arguments);
+    assert.deepEqual(subMcpProxy.required, ["operation"]);
+  });
+
   test("oi_shared_context list includes styleguide", async () => {
     const r = await tool("oi_shared_context").run({ operation: "list" });
     assert.equal(r.data.notImplemented, undefined);
