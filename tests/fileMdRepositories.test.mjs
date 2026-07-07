@@ -160,4 +160,98 @@ Beta content from staged copy.
       await rm(sourceRoot, { recursive: true, force: true });
     }
   });
+
+  test("fetch expands Obsidian-style wikilinks", async () => {
+    await writeFile(
+      join(base, "sharedContext", "about.md"),
+      `---
+name: about
+description: About page
+tags: []
+---
+See [[beta]] for details.
+`,
+      "utf8"
+    );
+
+    const r = await createFileMdRepositories(base);
+    const about = await r.sharedContext.fetch("about");
+
+    assert.ok(about);
+    assert.match(about.content, /<!-- oi-embed: beta -->/);
+    assert.match(about.content, /Beta content\./);
+    assert.deepEqual(about.embeddedReferences, ["beta"]);
+  });
+
+  test("fetch expands nested path wikilinks", async () => {
+    await mkdir(join(base, "sharedContext", "clients"), { recursive: true });
+    await writeFile(
+      join(base, "sharedContext", "clients", "acme.md"),
+      `---
+name: acme
+description: Acme client profile
+tags: []
+---
+Acme Corp profile body.
+`,
+      "utf8"
+    );
+    await writeFile(
+      join(base, "sharedContext", "path-about.md"),
+      `---
+name: path-about
+description: About with path link
+tags: []
+---
+Client notes: [[clients/acme]]
+`,
+      "utf8"
+    );
+
+    const r = await createFileMdRepositories(base);
+    const entry = await r.sharedContext.fetch("path-about");
+
+    assert.ok(entry);
+    assert.match(entry.content, /<!-- oi-embed: clients\/acme -->/);
+    assert.match(entry.content, /Acme Corp profile body\./);
+    assert.deepEqual(entry.embeddedReferences, ["clients/acme"]);
+  });
+
+  test("fetch resolves nested path ids and chained embeds", async () => {
+    await mkdir(join(base, "sharedContext", "tests"), { recursive: true });
+    await writeFile(
+      join(base, "sharedContext", "styleguide.md"),
+      `---
+name: styleguide
+description: Style rules
+tags:
+  - tone
+---
+Styleguide body.
+`,
+      "utf8"
+    );
+    await writeFile(
+      join(base, "sharedContext", "tests", "test2.md"),
+      "Follow [[styleguide]] for tone.\n",
+      "utf8"
+    );
+    await writeFile(
+      join(base, "sharedContext", "test.md"),
+      "See [[tests/test2]] for the next step.\n",
+      "utf8"
+    );
+
+    const r = await createFileMdRepositories(base);
+    const byPath = await r.sharedContext.fetch("tests/test2");
+    assert.ok(byPath);
+    assert.match(byPath.content, /Styleguide body\./);
+
+    const chain = await r.sharedContext.fetch("test");
+    assert.ok(chain);
+    assert.match(chain.content, /<!-- oi-embed: tests\/test2 -->/);
+    assert.match(chain.content, /<!-- oi-embed: styleguide -->/);
+    assert.deepEqual(chain.embeddedReferences, ["tests/test2", "styleguide"]);
+    assert.deepEqual(chain.embeddedMissing, []);
+  });
 });

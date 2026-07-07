@@ -71,6 +71,17 @@ describe("parsePromptMarkdown + serialization", () => {
     assert.deepEqual(sharedEntry.tags, []);
   });
 
+  test("derives nested path ids from sourceRelPath", () => {
+    const parsed = parsePromptMarkdown("Nested body.\n");
+    assert.equal(parsed.ok, true);
+    const entry = sharedContextEntryFromParsed(
+      parsed.fields,
+      parsed.body,
+      "sharedContext/tests/test2.md"
+    );
+    assert.equal(entry.id, "tests/test2");
+  });
+
   test("keeps malformed frontmatter strict", () => {
     const parsed = parsePromptMarkdown("---\nname: broken\nBody without closing");
     assert.equal(parsed.ok, false);

@@ -3,6 +3,7 @@
 import { z } from "zod/v3";
 import { getOiFileRepositories } from "../lib/oi/fileMdRepositories.mjs";
 import { handleSubMcpProxy } from "../lib/oi/subMcpProxy.mjs";
+import { isReadOnlyMode, readOnlyToolResponse } from "../lib/oi/readOnlyMode.mjs";
 
 const repositoryInitialization = getOiFileRepositories()
   .then((repositories) => {
@@ -177,6 +178,9 @@ async function handleSharedContext(op) {
       };
     }
     case "upsert": {
+      if (isReadOnlyMode()) {
+        return readOnlyToolResponse("upsert");
+      }
       const entry = await sharedContext.upsert({
         id: op.id,
         markdown: op.markdown,
@@ -235,6 +239,9 @@ async function handlePromptRepository(op) {
       };
     }
     case "upsert": {
+      if (isReadOnlyMode()) {
+        return readOnlyToolResponse("upsert");
+      }
       const entry = await prompts.upsert({
         id: op.id,
         text: op.text,
